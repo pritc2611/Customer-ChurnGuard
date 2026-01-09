@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Churn Prediction Result</title>
+    <link rel="stylesheet" href="/static/predstyle.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Prediction Results</h1>
+        </div>
+        
+        <div class="prediction-card"
+        style="--risk-color: {{ risk_color }};">
+            <div class="risk-badge">{{ risk_level }}</div>
+            <div class="probability">{{ churn_probability }}%</div>
+        <p class="label">Churn Probability</p>
+        </div>
+
+        
+        <div class="section">
+            <h2>📋 Customer Details</h2>
+            <div class="customer-details">
+                <div class="detail-item">
+                    <span class="detail-label">Gender:</span>
+                    <span class="detail-value">{{Gender}}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Age:</span>
+                    <span class="detail-value">{{Age}} years</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Subscription:</span>
+                    <span class="detail-value">{{Subscription_Type}}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Contract:</span>
+                    <span class="detail-value">{{Contract_Length}}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Tenure:</span>
+                    <span class="detail-value">{{Tenure}} months</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Usage Frequency:</span>
+                    <span class="detail-value">{{Usage_Frequency}} Times</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Total Spend:</span>
+                    <span class="detail-value">₹ {{Total_Spend}}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🎯 Top Factors Influencing Churn</h2>
+            <div class="factors-container">
+                {{ reasons_html | safe }}
+            </div>
+            <p style="margin-top: 15px; color: #666; font-size: 13px;">
+                <strong>Note:</strong> These factors are sorted by their impact on churn prediction. Take immediate action on increasing risk factors.
+            </p>
+        </div>
+        
+        <div class="section">
+            <h2>💡 Recommended Actions</h2>
+            <div class="recommendation">
+                <p>{{recommendation}}</p>
+            </div>
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="/" class="back-btn">← Predict Another Customer</a>
+        </div>
+    </div>
+</body>
+</html>
