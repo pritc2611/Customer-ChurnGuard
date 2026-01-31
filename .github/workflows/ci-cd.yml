@@ -3,7 +3,7 @@ name: Explanible-Churn-system
 on:
   push:
     branches:
-      - main
+      - Churn-system
 
 jobs:
   build:
