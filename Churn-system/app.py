@@ -1,21 +1,51 @@
 from fastapi import FastAPI, Form, HTTPException , Request 
 from fastapi.responses import HTMLResponse , JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
-import joblib
-import shap
 import pandas as pd
-import numpy as np
-from pathlib import Path
 from function import customerinput , generate_reasons
 from fastapi.templating import Jinja2Templates
-from function import load_html_template , model , transformer , shap_explainer
+from function import load_html_template 
+import joblib
+import shap
+from contextlib import asynccontextmanager
+
+
+
+@asynccontextmanager
+async def lifespan(app:FastAPI):
+    global model , transformer , background , shap_explainer
+
+    print("\n" + "="*70)
+    print("Starting Startup")
+    print("\n" + "="*70)
+
+    print("Loading pipelines")
+    print("\n" + "="*70)
+
+    full_pipline = joblib.load("churn_clf.joblib")
+    print("Pipelines successfully loaded...")
+
+    model = full_pipline.named_steps["model"]
+    transformer = full_pipline.named_steps["trf"]
+
+    print("\n" + "="*70)
+    background = pd.read_csv("shap_background.csv")
+    print(" successfully loaded background files")
+    print("\n" + "="*70)
+
+    print("\n" + "="*70)
+    shap_explainer = shap.Explainer(model.predict_proba, masker=background)
+    print("SHAP successfully loaded")
+    print("\n" + "="*70)
+
+    yield
 
 
 app = FastAPI(
     title="Customer Churn Prediction API",
     description="Production-grade ML system for predicting customer churn",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")

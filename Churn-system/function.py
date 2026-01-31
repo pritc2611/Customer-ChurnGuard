@@ -1,47 +1,17 @@
 from pydantic import BaseModel , Field , field_validator
 import pandas as pd
 import shap
-from fastapi import FastAPI, Form, HTTPException , Request 
-from fastapi.responses import HTMLResponse , JSONResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import joblib
 import shap
 import pandas as pd
-import numpy as np
 from pathlib import Path
-from fastapi.templating import Jinja2Templates
 
 
 
-
-print("\n" + "="*70)
-print("Starting Startup")
-print("\n" + "="*70)
-
-print("Loading pipelines")
-print("\n" + "="*70)
-
-full_pipline = joblib.load("./churn_clf.joblib")
-print("Pipelines successfully loaded...")
-
-model = full_pipline.named_steps["model"]
-transformer = full_pipline.named_steps["trf"]
-
-print("\n" + "="*70)
-print("Loading background files")
-print("\n" + "="*70)
-
-background = pd.read_csv("./shap_background.csv")
-
-print("\n" + "="*70)
-shap_explainer = shap.Explainer(model.predict_proba, masker=background)
-print("SHAP successfully loaded")
-print("\n" + "="*70)
 
 
 def load_html_template(filename):
-    """Load HTML template from file"""
     template_path = Path("template") / filename
     with open(template_path, 'r', encoding='utf-8') as f:
         return f.read()
@@ -105,7 +75,7 @@ def generate_reasons(shap_val):
     )
 
     # Filter weak effects
-    shap_df = shap_df[shap_df.shap_value.abs() > 0.01].sort_values(
+    shap_df = shap_df[shap_df.shap_value.abs() > 0.1].sort_values(
         by="shap_value", ascending=True
     )
 
@@ -113,12 +83,12 @@ def generate_reasons(shap_val):
     for _, row in shap_df.iterrows():
         if row.shap_value > 0:
             reason = (
-                f"{row.feature} of customer is increasing churn probability "
+                f"{row.feature} of customer is increasing churn probability by "
                 f"({row.shap_value:.2f})"
             )
         else:
             reason = (
-                f"{row.feature} of customer is decreasing churn probability "
+                f"{row.feature} of customer is decreasing churn probability by "
                 f"({row.shap_value:.2f})"
             )
 
