@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 
 
+
 @asynccontextmanager
 async def lifespan(app:FastAPI):
     global model , transformer , background , shap_explainer
