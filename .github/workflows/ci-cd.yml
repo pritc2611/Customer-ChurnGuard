@@ -40,5 +40,5 @@ jobs:
 
       - name: Tagging & pushing image
         run: |
-          docker tag ${{ secrets.DOCKER_USERNAME}}/Churning-system:latest ${{ secrets.DOCKER_USERNAME}}/Churning-system:latest
-          docker push ${{ secrets.DOCKER_USERNAME}}/Churning-system:latest
+          docker tag ${{ secrets.DOCKER_USERNAME}}/churning-system:latest ${{ secrets.DOCKER_USERNAME}}/churning-system:latest
+          docker push ${{ secrets.DOCKER_USERNAME}}/churning-system:latest
