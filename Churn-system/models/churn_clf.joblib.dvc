@@ -1,0 +1,5 @@
+outs:
+- md5: e28a03292e204d76f2007ac0754dae7e
+  size: 5204994
+  hash: md5
+  path: churn_clf.joblib

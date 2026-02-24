@@ -1,0 +1,5 @@
+outs:
+- md5: 89d893a1fb7846b5c2b9eec45972a7ee
+  size: 29713
+  hash: md5
+  path: KMeans-cluster-model.joblib
