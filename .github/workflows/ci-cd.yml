@@ -1,44 +1,85 @@
-name: Explanible-Churn-system
+name: ChurnGuard — CI/CD Pipeline
 
 on:
   push:
     branches:
+      - main
       - Churn-system
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  # ── Lint & basic checks ──────────────────────────────────────────────────
+  lint:
+    name: Lint & Syntax Check
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linting tools
+        run: pip install flake8 pyflakes
+
+      - name: Lint app.py
+        run: flake8 Churn-system/src/app.py --max-line-length=120 --ignore=E501,W503
+
+      - name: Lint utils
+        run: flake8 Churn-system/src/util/ --max-line-length=120 --ignore=E501,W503
+
+  # ── Build & push Docker image ────────────────────────────────────────────
+  build-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: lint
+    # Only push on main / Churn-system branch, not on PRs
+    if: github.event_name == 'push'
 
     steps:
-      - name: Checking out code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setting up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-        
-      - name: Installing dependencies
+      # ── Validate required secrets ──────────────────────────────────────
+      - name: Validate secrets
         run: |
-          python -m pip install --upgrade pip
-          pip install -r Churn-system/requirements.txt
-          
-      - name: Checking required secrets keys
-        run: |
-          if [ -z "${{ secrets.DOCKER_USERNAME}}" ]; then echo "Missing DOCKER_USERNAME" && exit 1; fi
-          if [ -z "${{ secrets.DOCKER_PASSWORD}}" ]; then echo "Missing DOCKERHUB_TOKEN" && exit 1; fi
-      
-      - name: Building Docker image
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME}}/churning-system Churn-system
+          [ -n "${{ secrets.DOCKER_USERNAME }}" ] || (echo "❌ Missing DOCKER_USERNAME" && exit 1)
+          [ -n "${{ secrets.DOCKER_PASSWORD }}" ] || (echo "❌ Missing DOCKER_PASSWORD"  && exit 1)
 
+      # ── Docker Buildx (for multi-platform) ────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Log in to Docker Hub ───────────────────────────────────────────
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME}}
-          password: ${{ secrets.DOCKER_PASSWORD}}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Tagging & pushing image
-        run: |
-          docker tag ${{ secrets.DOCKER_USERNAME}}/churning-system:latest ${{ secrets.DOCKER_USERNAME}}/churning-system:latest
-          docker push ${{ secrets.DOCKER_USERNAME}}/churning-system:latest
+      # ── Build meta (tag with sha + latest) ────────────────────────────
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/churnguard
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # ── Build & push ───────────────────────────────────────────────────
+      - name: Build & push image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Churn-system
+          file: ./Churn-system/dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Print image digest
+        run: echo "Pushed → ${{ steps.meta.outputs.tags }}"

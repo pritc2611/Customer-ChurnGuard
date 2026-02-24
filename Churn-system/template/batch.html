@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChurnGuard — Batch Prediction</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .batch-hero { text-align: center; padding: 60px 0 40px; }
+    .batch-hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 20px;
+      padding: 60px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .25s;
+      background: var(--surface);
+      margin: 0 auto 32px;
+      max-width: 600px;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(99,91,255,.05);
+    }
+    .upload-icon { font-size: 56px; margin-bottom: 16px; }
+    .upload-zone p { color: var(--text-muted); margin: 0; }
+    .upload-zone .allowed { font-size: 0.8rem; margin-top: 8px; opacity: .6; }
+    #fileInput { display: none; }
+    .file-chosen {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 12px 20px;
+      margin: 0 auto 24px;
+      max-width: 600px;
+      color: #16a34a;
+      font-weight: 500;
+    }
+    .file-chosen.visible { display: flex; }
+    .process-btn {
+      display: block;
+      margin: 0 auto;
+      padding: 16px 48px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s;
+      font-family: inherit;
+    }
+    .process-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,91,255,.35); }
+    .process-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    .progress-wrap { display: none; text-align: center; margin: 32px auto; max-width: 600px; }
+    .progress-bar-outer { height: 8px; background: var(--border); border-radius: 8px; overflow: hidden; }
+    .progress-bar-inner { height: 100%; width: 0; background: var(--accent); border-radius: 8px;
+                          transition: width 0.4s ease; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.6} }
+    .progress-text { margin-top: 12px; color: var(--text-muted); font-size: .9rem; }
+
+    .info-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      max-width: 900px;
+      margin: 48px auto 0;
+    }
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    .info-card .ic-icon { font-size: 28px; margin-bottom: 10px; }
+    .info-card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+    .info-card p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="noise"></div>
+
+  <header class="site-header">
+    <div class="logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">ChurnGuard</span>
+    </div>
+    <nav class="header-nav">
+      <a href="/" class="nav-link">Individual</a>
+      <a href="/batch" class="nav-link active">Batch</a>
+      <a href="/docs" class="nav-link" target="_blank">API Docs</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 960px; margin: 0 auto; padding: 0 24px 80px;">
+    <div class="batch-hero">
+      <p class="hero-eyebrow">Bulk Processing</p>
+      <h1 class="hero-title">Batch <em>Churn Analysis</em></h1>
+      <p class="hero-sub" style="margin: 0 auto; max-width: 520px;">
+        Upload a CSV or Excel file. We'll score every customer, add CLV & Revenue-at-Risk,
+        and return an Excel report sorted by highest risk — ready for your retention team.
+      </p>
+    </div>
+
+    <form id="batchForm" enctype="multipart/form-data">
+      <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📂</div>
+        <p><strong>Click to browse</strong> or drag &amp; drop your file here</p>
+        <p class="allowed">Accepted: .csv · .xlsx · .xls</p>
+      </div>
+      <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls" />
+    </form>
+
+    <div class="file-chosen" id="fileChosen">
+      <span>📄</span>
+      <span id="fileName">—</span>
+    </div>
+
+    <button class="process-btn" id="processBtn" disabled>
+      🔮 Process & Download Results
+    </button>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="progressBar"></div>
+      </div>
+      <p class="progress-text" id="progressText">Uploading file…</p>
+    </div>
+
+    <!-- Info cards -->
+    <div class="info-cards">
+      <div class="info-card">
+        <div class="ic-icon">🎯</div>
+        <h3>Churn Probability</h3>
+        <p>ML-scored probability per customer using your trained Gradient Boosting model.</p>
+      </div>
+      <div class="info-card">
+        <div class="ic-icon">💰</div>
+        <h3>Revenue at Risk</h3>
+        <p>CLV × Churn Probability, highlighting customers worth prioritising for retention.</p>
+      </div>
+      <div class="info-card">
+        <div class="ic-icon">🧩</div>
+        <h3>Segmentation</h3>
+        <p>KMeans clusters label each customer as <em>Loyal High-Value</em> or <em>Low Engagement</em>.</p>
+      </div>
+      <div class="info-card">
+        <div class="ic-icon">📊</div>
+        <h3>Excel Output</h3>
+        <p>Colour-coded Excel file sorted by Revenue at Risk — drop straight into your CRM workflow.</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('fileInput');
+    const processBtn = document.getElementById('processBtn');
+    const fileChosen = document.getElementById('fileChosen');
+    const fileName   = document.getElementById('fileName');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar  = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    function setFile(file) {
+      if (!file) return;
+      fileName.textContent = file.name;
+      fileChosen.classList.add('visible');
+      processBtn.disabled = false;
+    }
+
+    fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave',()   => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      const dt   = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      setFile(file);
+    });
+
+    processBtn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      processBtn.disabled     = true;
+      progressWrap.style.display = 'block';
+      progressBar.style.width    = '30%';
+      progressText.textContent   = 'Uploading & scoring customers…';
+
+      const fd = new FormData();
+      fd.append('file', file);
+
+      try {
+        progressBar.style.width  = '60%';
+        progressText.textContent = 'Running ML inference…';
+
+        const res = await fetch('/batch_predict', { method: 'POST', body: fd });
+
+        progressBar.style.width  = '90%';
+        progressText.textContent = 'Building Excel report…';
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Error: ' + (err.detail || 'Unknown'));
+          progressWrap.style.display = 'none';
+          processBtn.disabled = false;
+          return;
+        }
+
+        const blob   = await res.blob();
+        const url    = URL.createObjectURL(blob);
+        const a      = document.createElement('a');
+        a.href       = url;
+        a.download   = 'churn_predictions.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        progressBar.style.width  = '100%';
+        progressText.textContent = '✅ Download started!';
+        setTimeout(() => { progressWrap.style.display = 'none'; }, 2500);
+
+      } catch (err) {
+        alert('Network error: ' + err.message);
+        progressWrap.style.display = 'none';
+      } finally {
+        processBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

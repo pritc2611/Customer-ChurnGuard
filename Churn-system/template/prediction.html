@@ -1,79 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Churn Prediction Result</title>
-    <link rel="stylesheet" href="/static/predstyle.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChurnGuard — Prediction Result</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/predstyle.css" />
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📊 Prediction Results</h1>
-        </div>
-        
-        <div class="prediction-card"
-        style="--risk-color: {{ risk_color }};">
-            <div class="risk-badge">{{ risk_level }}</div>
-            <div class="probability">{{ churn_probability }}%</div>
-        <p class="label">Churn Probability</p>
-        </div>
+  <div class="noise"></div>
 
-        
-        <div class="section">
-            <h2>📋 Customer Details</h2>
-            <div class="customer-details">
-                <div class="detail-item">
-                    <span class="detail-label">Gender:</span>
-                    <span class="detail-value">{{Gender}}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Age:</span>
-                    <span class="detail-value">{{Age}} years</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Subscription:</span>
-                    <span class="detail-value">{{Subscription_Type}}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Contract:</span>
-                    <span class="detail-value">{{Contract_Length}}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Tenure:</span>
-                    <span class="detail-value">{{Tenure}} months</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Usage Frequency:</span>
-                    <span class="detail-value">{{Usage_Frequency}} Times</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Total Spend:</span>
-                    <span class="detail-value">₹ {{Total_Spend}}</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>🎯 Top Factors Influencing Churn</h2>
-            <div class="factors-container">
-                {{ reasons_html | safe }}
-            </div>
-            <p style="margin-top: 15px; color: #666; font-size: 13px;">
-                <strong>Note:</strong> These factors are sorted by their impact on churn prediction. Take immediate action on increasing risk factors.
-            </p>
-        </div>
-        
-        <!-- <div class="section">
-            <h2>💡 Recommended Actions</h2>
-            <div class="recommendation">
-                <p>{{recommendation}}</p>
-            </div>
-        </div> -->
-        
-        <div style="text-align: center;">
-            <a href="/" class="back-btn">← Predict Another Customer</a>
-        </div>
+  <header class="site-header">
+    <div class="logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">ChurnGuard</span>
     </div>
+    <nav class="header-nav">
+      <a href="/" class="nav-link">Individual</a>
+      <a href="/batch" class="nav-link">Batch</a>
+      <a href="/docs" class="nav-link" target="_blank">API Docs</a>
+    </nav>
+  </header>
+
+  <main class="result-main">
+
+    <!-- ── Hero risk card ─────────────────────────────────────────────── -->
+    <div class="risk-hero" style="--rc: {{ risk_color }};">
+      <div class="risk-meter">
+        <svg viewBox="0 0 200 120" class="gauge-svg">
+          <defs>
+            <linearGradient id="gGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stop-color="#16a34a"/>
+              <stop offset="40%"  stop-color="#d97706"/>
+              <stop offset="75%"  stop-color="#ea580c"/>
+              <stop offset="100%" stop-color="#dc2626"/>
+            </linearGradient>
+          </defs>
+          <!-- track -->
+          <path d="M 15 110 A 85 85 0 0 1 185 110" fill="none" stroke="#e5e7eb" stroke-width="12" stroke-linecap="round"/>
+          <!-- fill -->
+          <path id="gaugeFill" d="M 15 110 A 85 85 0 0 1 185 110" fill="none" stroke="url(#gGrad)" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="267" stroke-dashoffset="267"/>
+          <!-- needle -->
+          <line id="needle" x1="100" y1="110" x2="100" y2="35" stroke="{{ risk_color }}" stroke-width="3" stroke-linecap="round"
+                transform-origin="100 110" transform="rotate(0)"/>
+          <circle cx="100" cy="110" r="6" fill="{{ risk_color }}"/>
+        </svg>
+        <div class="gauge-pct">{{ churn_probability }}<span class="pct-sign">%</span></div>
+        <div class="gauge-label">Churn Probability</div>
+      </div>
+      <div class="risk-badge" style="background:{{ risk_color }};">{{ risk_level }}</div>
+      <div class="segment-pill">{{ segment }}</div>
+    </div>
+
+    <div class="result-grid">
+
+      <!-- ── Customer details ─────────────────────────────────────────── -->
+      <section class="card">
+        <h2 class="card-title">Customer Profile</h2>
+        <div class="detail-grid">
+          <div class="dl"><span>Gender</span><strong>{{ gender }}</strong></div>
+          <div class="dl"><span>Senior</span><strong>{{ SeniorCitizen }}</strong></div>
+          <div class="dl"><span>Partner</span><strong>{{ Partner }}</strong></div>
+          <div class="dl"><span>Dependents</span><strong>{{ Dependents }}</strong></div>
+          <div class="dl"><span>Tenure</span><strong>{{ tenure }} mo</strong></div>
+          <div class="dl"><span>Internet</span><strong>{{ InternetService }}</strong></div>
+          <div class="dl"><span>Contract</span><strong>{{ Contract }}</strong></div>
+          <div class="dl"><span>Payment</span><strong>{{ PaymentMethod }}</strong></div>
+          <div class="dl"><span>Monthly $</span><strong>${{ MonthlyCharges }}</strong></div>
+          <div class="dl"><span>Total $</span><strong>${{ TotalCharges }}</strong></div>
+        </div>
+      </section>
+
+      <!-- ── Business KPIs ────────────────────────────────────────────── -->
+      <section class="card">
+        <h2 class="card-title">Business KPIs</h2>
+        <div class="kpi-grid">
+          <div class="kpi-box kpi-danger">
+            <div class="kpi-val">${{ kpi_revenue_at_risk }}</div>
+            <div class="kpi-name">Revenue at Risk</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-val">${{ kpi_clv }}</div>
+            <div class="kpi-name">CLV <span class="tier-badge">{{ kpi_clv_tier }}</span></div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-val">${{ kpi_expected_ltv }}</div>
+            <div class="kpi-name">Expected LTV</div>
+          </div>
+          <div class="kpi-box kpi-positive">
+            <div class="kpi-val">${{ kpi_net_retention_value }}</div>
+            <div class="kpi-name">Net Retention Value</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SHAP factors ──────────────────────────────────────────────── -->
+      <section class="card card-wide">
+        <h2 class="card-title">Top Churn Drivers <span class="card-sub">via SHAP</span></h2>
+        <div class="factors-list">
+          {{ reasons_html | safe }}
+        </div>
+        <p class="factors-note">Factors sorted by absolute impact. Positive values increase churn probability; negative values reduce it.</p>
+      </section>
+
+    </div><!-- /result-grid -->
+
+    <div class="actions">
+      <a href="/" class="back-btn">← Predict Another</a>
+      <a href="/batch" class="batch-btn">📊 Run Batch Analysis</a>
+    </div>
+
+  </main>
+
+  <script>
+    // Animate gauge on load
+    const prob = {{ churn_probability | tojson }};
+    const maxDash = 267;
+    const fill    = document.getElementById('gaugeFill');
+    const needle  = document.getElementById('needle');
+
+    // Degrees: 0% = -90deg, 100% = +90deg
+    const targetDash   = maxDash * (1 - prob / 100);
+    const targetDeg    = -90 + (prob / 100) * 180;
+
+    setTimeout(() => {
+      fill.style.transition   = 'stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1)';
+      needle.style.transition = 'transform 1.4s cubic-bezier(.4,0,.2,1)';
+      fill.style.strokeDashoffset = targetDash;
+      needle.setAttribute('transform', `rotate(${targetDeg})`);
+    }, 200);
+  </script>
 </body>
 </html>
