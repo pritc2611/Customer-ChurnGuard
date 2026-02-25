@@ -3,6 +3,7 @@ Customer Churn Prediction - Training Pipeline
 Trains churn classifier + KMeans segmentation model.
 Tracks experiments with MLflow and registers the best model.
 """
+
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -21,37 +22,53 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.cluster import KMeans
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score,
-    f1_score, roc_auc_score
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
 )
 import dagshub
 
 import warnings
+
 warnings.filterwarnings("ignore")
 
 dagshub.init(repo_owner="pritc2611", repo_name="Churn-models", mlflow=True)
 print(mlflow.get_tracking_uri())
 
 client = MlflowClient()
-EXPERIMENT_NAME   = "customer_churn_telco"
-REGISTERED_MODEL  = "TelcoChurnModel"
-METRIC_NAME       = "recall"
+EXPERIMENT_NAME = "customer_churn_telco"
+REGISTERED_MODEL = "TelcoChurnModel"
+METRIC_NAME = "recall"
 
 # ── Feature groups ───────────────────────────────────────────────────────────
 CAT_FEATURES = [
-    "gender", "SeniorCitizen", "Partner", "Dependents",
-    "PhoneService", "MultipleLines", "InternetService",
-    "OnlineSecurity", "OnlineBackup", "DeviceProtection",
-    "TechSupport", "StreamingTV", "StreamingMovies",
-    "Contract", "PaperlessBilling", "PaymentMethod",
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
 ]
 NUM_FEATURES = ["tenure", "MonthlyCharges", "TotalCharges"]
 ALL_FEATURES = CAT_FEATURES + NUM_FEATURES
-TARGET       = "Churn"
+TARGET = "Churn"
 models_dir = "./models"
-os.makedirs(models_dir, exist_ok=True) 
+os.makedirs(models_dir, exist_ok=True)
 shap_backgrround_dir = "./shape-background"
-os.makedirs(shap_backgrround_dir,exist_ok=True)
+os.makedirs(shap_backgrround_dir, exist_ok=True)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Data preprocessing
@@ -71,7 +88,7 @@ def load_and_clean(path: str) -> pd.DataFrame:
     # Encode target
     if df[TARGET].dtype == object:
         df[TARGET] = df[TARGET].map({"Yes": 1, "No": 0})
-    
+
     df[TARGET] = df[TARGET].astype(int)
 
     # Cast SeniorCitizen to str so it's treated as categorical
@@ -84,13 +101,17 @@ def load_and_clean(path: str) -> pd.DataFrame:
 def build_service_count(df: pd.DataFrame) -> pd.DataFrame:
     """Count value-added services per customer (used for segmentation)."""
     service_cols = [
-        "OnlineSecurity", "OnlineBackup", "DeviceProtection",
-        "TechSupport", "StreamingTV", "StreamingMovies",
+        "OnlineSecurity",
+        "OnlineBackup",
+        "DeviceProtection",
+        "TechSupport",
+        "StreamingTV",
+        "StreamingMovies",
     ]
     # "Yes" = 1, anything else = 0
-    df["ServiceCount"] = df[service_cols].apply(
-        lambda col: (col == "Yes").astype(int)
-    ).sum(axis=1)
+    df["ServiceCount"] = (
+        df[service_cols].apply(lambda col: (col == "Yes").astype(int)).sum(axis=1)
+    )
     return df
 
 
@@ -104,7 +125,7 @@ def train_segmentation_model(df: pd.DataFrame):
 
     scaler = StandardScaler()
     scaled = scaler.fit_transform(seg_df)
-    
+
     kmeans = KMeans(n_clusters=2, random_state=42, n_init=10)
     kmeans.fit(scaled)
 
@@ -122,8 +143,8 @@ def train_segmentation_model(df: pd.DataFrame):
         0: "Loyal High-Value",
         1: "Low Engagement / Higher Risk",
     }
-    df["Cluster"]  = kmeans.predict(scaled)
-    df["Segment"]  = df["Cluster"].map(cluster_labels)
+    df["Cluster"] = kmeans.predict(scaled)
+    df["Segment"] = df["Cluster"].map(cluster_labels)
     return df, seg_bundle
 
 
@@ -132,17 +153,21 @@ def train_segmentation_model(df: pd.DataFrame):
 # ─────────────────────────────────────────────────────────────────────────────
 def build_pipeline(clf) -> Pipeline:
     cat_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-    num_scaler  = StandardScaler()
+    num_scaler = StandardScaler()
 
-    preprocessor = ColumnTransformer(transformers=[
-        ("cat", cat_encoder, CAT_FEATURES),
-        ("num", num_scaler,  NUM_FEATURES),
-    ])
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("cat", cat_encoder, CAT_FEATURES),
+            ("num", num_scaler, NUM_FEATURES),
+        ]
+    )
 
-    return Pipeline(steps=[
-        ("transformation", preprocessor),
-        ("model",          clf),
-    ])
+    return Pipeline(
+        steps=[
+            ("transformation", preprocessor),
+            ("model", clf),
+        ]
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -152,17 +177,17 @@ class ModelTrainer:
     def __init__(self):
         if client.get_experiment_by_name(EXPERIMENT_NAME) is None:
             client.create_experiment(EXPERIMENT_NAME)
-        self.best_run_id   = None
-        self.best_score    = 0.0
+        self.best_run_id = None
+        self.best_score = 0.0
         self.best_pipeline = None
 
     def _metrics(self, y_true, y_pred, y_proba) -> dict:
         return {
-            "accuracy" : accuracy_score(y_true, y_pred),
+            "accuracy": accuracy_score(y_true, y_pred),
             "precision": precision_score(y_true, y_pred, zero_division=0),
-            "recall"   : recall_score(y_true, y_pred, zero_division=0),
-            "f1"       : f1_score(y_true, y_pred, zero_division=0),
-            "roc_auc"  : roc_auc_score(y_true, y_proba),
+            "recall": recall_score(y_true, y_pred, zero_division=0),
+            "f1": f1_score(y_true, y_pred, zero_division=0),
+            "roc_auc": roc_auc_score(y_true, y_proba),
         }
 
     def train_one(self, name, clf, params, X_train, X_test, y_train, y_test):
@@ -172,7 +197,7 @@ class ModelTrainer:
             mlflow.log_params(params)
             pipeline.fit(X_train, y_train)
 
-            y_pred  = pipeline.predict(X_test)
+            y_pred = pipeline.predict(X_test)
             y_proba = pipeline.predict_proba(X_test)[:, 1]
             m = self._metrics(y_test, y_pred, y_proba)
             mlflow.log_metrics(m)
@@ -181,8 +206,8 @@ class ModelTrainer:
             print(f"  {name:30s}  AUC={m['roc_auc']:.4f}  F1={m['f1']:.4f}")
 
             if m[METRIC_NAME] > self.best_score:
-                self.best_score    = m[METRIC_NAME]
-                self.best_run_id   = run.info.run_id
+                self.best_score = m[METRIC_NAME]
+                self.best_run_id = run.info.run_id
                 self.best_pipeline = pipeline
 
         return pipeline, m
@@ -191,27 +216,29 @@ class ModelTrainer:
         configs = {
             "XgboostClassifier": (
                 XGBClassifier(),
-                {"nothing":0},
+                {"nothing": 0},
             ),
             "RandomForest": (
                 RandomForestClassifier(
-                    n_estimators=200, max_depth=8,
-                    min_samples_split=5, class_weight="balanced", random_state=42
+                    n_estimators=200,
+                    max_depth=8,
+                    min_samples_split=5,
+                    class_weight="balanced",
+                    random_state=42,
                 ),
                 {"n_estimators": 100, "max_depth": 5},
             ),
             "GradientBoosting": (
                 GradientBoostingClassifier(
-                    n_estimators=200, learning_rate=0.1,
-                    max_depth=5, random_state=42
+                    n_estimators=200, learning_rate=0.1, max_depth=5, random_state=42
                 ),
                 {"n_estimators": 100, "lr": 0.05},
             ),
         }
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("  Model Training")
-        print("="*60)
+        print("=" * 60)
         results = {}
         for name, (clf, params) in configs.items():
             pipeline, metrics = self.train_one(
@@ -229,16 +256,20 @@ class ModelTrainer:
         mv = client.create_model_version(
             name=REGISTERED_MODEL,
             source=model_uri,
-            run_id=self.best_run_id,)
+            run_id=self.best_run_id,
+        )
         client.transition_model_version_stage(
-                name=REGISTERED_MODEL,
-                version=mv.version,
-                stage="Production",
-                archive_existing_versions=True,)
+            name=REGISTERED_MODEL,
+            version=mv.version,
+            stage="Production",
+            archive_existing_versions=True,
+        )
 
         print(
             f"\n✅  Best model (recall={self.best_score:.4f}) "
-            f"registered as '{REGISTERED_MODEL}' v{mv.version} → Production")
+            f"registered as '{REGISTERED_MODEL}' v{mv.version} → Production"
+        )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SHAP background sample
@@ -246,7 +277,9 @@ class ModelTrainer:
 def save_shap_background(pipeline, X_train: pd.DataFrame, n: int = 100):
     transformer = pipeline.named_steps["transformation"]
     X_bg = transformer.transform(X_train.sample(n, random_state=42))
-    pd.DataFrame(X_bg).to_csv(f"{shap_backgrround_dir}/shap_background.csv", index=False)
+    pd.DataFrame(X_bg).to_csv(
+        f"{shap_backgrround_dir}/shap_background.csv", index=False
+    )
     print(f"✅  SHAP background ({n} rows) saved  →  shap_background.csv")
 
 
@@ -262,9 +295,9 @@ if __name__ == "__main__":
     df = build_service_count(df)
 
     # ── Segmentation ──────────────────────────────────────────────────────
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Segmentation Model")
-    print("="*60)
+    print("=" * 60)
     df, seg_bundle = train_segmentation_model(df)
 
     # ── Train/test split ──────────────────────────────────────────────────
@@ -290,9 +323,9 @@ if __name__ == "__main__":
     save_shap_background(trainer.best_pipeline, X_train)
 
     # ── Results summary ───────────────────────────────────────────────────
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Results Summary")
-    print("="*60)
+    print("=" * 60)
     df_res = pd.DataFrame(results).T
     print(df_res[["accuracy", "precision", "recall", "f1", "roc_auc"]].round(4))
     print("\nTraining complete! 🎉")

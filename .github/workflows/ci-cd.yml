@@ -21,14 +21,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install linting tools
-        run: pip install flake8 pyflakes
+      - name: Install tools
+        run: pip install flake8 black
+
+      - name: Auto-format code
+        run: black Churn-system/
 
       - name: Lint app.py
-        run: flake8 Churn-system/app/app.py --max-line-length=120 --ignore=E501,W503
-
-      - name: Lint utils
-        run: flake8 Churn-system/util/ --max-line-length=120 --ignore=E501,W503
+        run: flake8 Churn-system/
 
   # ── Build & push Docker image ────────────────────────────────────────────
   build-push:

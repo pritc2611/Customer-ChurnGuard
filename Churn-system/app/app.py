@@ -1,12 +1,9 @@
 from __future__ import annotations
-import os
 import io
 import shap
 import joblib
 import pandas as pd
 from contextlib import asynccontextmanager
-import mlflow
-import dagshub
 from fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -31,13 +28,13 @@ from util.utils import (
 # ─────────────────────────────────────────────────────────────────────────────
 # Global state (loaded once at startup)
 # ─────────────────────────────────────────────────────────────────────────────
-model           = None
-transformer     = None
-shap_explainer  = None
-seg_bundle      = None   # {"scaler": ..., "kmeans": ...}
-full_pipeline   = None
-MODEL_DIR =  "models"
-SHAPE_DIR =  "shape-background"
+model = None
+transformer = None
+shap_explainer = None
+seg_bundle = None  # {"scaler": ..., "kmeans": ...}
+full_pipeline = None
+MODEL_DIR = "models"
+SHAPE_DIR = "shape-background"
 REGISTERED_MODEL = "TelcoChurnModel"
 
 
@@ -54,7 +51,7 @@ async def lifespan(app: FastAPI):
 
     # except Exception as e:
     full_pipeline = joblib.load(f"{MODEL_DIR}/churn_clf.joblib")
-    seg_bundle    = joblib.load(f"{MODEL_DIR}/KMeans-cluster-model.joblib")
+    seg_bundle = joblib.load(f"{MODEL_DIR}/KMeans-cluster-model.joblib")
     print("✅  model loaded")
 
     # 4. Set up components as before
@@ -102,25 +99,25 @@ def serve_form():
 @app.post("/predict", tags=["Prediction"])
 async def predict(
     request: Request,
-    gender: str           = Form(...),
-    SeniorCitizen: str    = Form(...),
-    Partner: str          = Form(...),
-    Dependents: str       = Form(...),
-    tenure: float         = Form(...),
-    PhoneService: str     = Form(...),
-    MultipleLines: str    = Form(...),
-    InternetService: str  = Form(...),
-    OnlineSecurity: str   = Form(...),
-    OnlineBackup: str     = Form(...),
+    gender: str = Form(...),
+    SeniorCitizen: str = Form(...),
+    Partner: str = Form(...),
+    Dependents: str = Form(...),
+    tenure: float = Form(...),
+    PhoneService: str = Form(...),
+    MultipleLines: str = Form(...),
+    InternetService: str = Form(...),
+    OnlineSecurity: str = Form(...),
+    OnlineBackup: str = Form(...),
     DeviceProtection: str = Form(...),
-    TechSupport: str      = Form(...),
-    StreamingTV: str      = Form(...),
-    StreamingMovies: str  = Form(...),
-    Contract: str         = Form(...),
+    TechSupport: str = Form(...),
+    StreamingTV: str = Form(...),
+    StreamingMovies: str = Form(...),
+    Contract: str = Form(...),
     PaperlessBilling: str = Form(...),
-    PaymentMethod: str    = Form(...),
+    PaymentMethod: str = Form(...),
     MonthlyCharges: float = Form(...),
-    TotalCharges: float   = Form(...),
+    TotalCharges: float = Form(...),
 ):
     try:
         # ── Build customer input ─────────────────────────────
@@ -148,15 +145,15 @@ async def predict(
         input_df = customer.to_dataframe()
 
         # ── Make prediction ────────────────────────────────
-        X_transformed   = transformer.transform(input_df[ALL_FEATURES])
+        X_transformed = transformer.transform(input_df[ALL_FEATURES])
         churn_proba_raw = float(model.predict_proba(X_transformed)[0][1])
         churn_proba_pct = round(churn_proba_raw * 100, 1)
-        risk_level      = get_risk_tier(churn_proba_raw)
-        risk_color      = get_risk_color(churn_proba_raw)
+        risk_level = get_risk_tier(churn_proba_raw)
+        risk_color = get_risk_color(churn_proba_raw)
 
         # ── SHAP explanations ─────────────────────────────
         shap_values = shap_explainer(X_transformed)
-        reasons     = generate_reasons(shap_values)
+        reasons = generate_reasons(shap_values)
         reasons_html = (
             '<ul style="list-style-type:none;padding-left:0;">'
             + "".join(f"<li>➡️ {r}</li>" for r in reasons)
@@ -170,42 +167,43 @@ async def predict(
 
         # ── KPI calculations ─────────────────────────────
         kpis = calculate_individual_kpis(
-            total_charges     = TotalCharges,
-            monthly_charges   = MonthlyCharges,
-            tenure            = tenure,
-            churn_probability = churn_proba_raw,
-            contract          = Contract,
+            total_charges=TotalCharges,
+            monthly_charges=MonthlyCharges,
+            tenure=tenure,
+            churn_probability=churn_proba_raw,
+            contract=Contract,
         )
 
         # ── Render HTML template ─────────────────────────
         return templates.TemplateResponse(
             "prediction.html",
             {
-                "request"          : request,
-                "risk_level"       : risk_level,
-                "risk_color"       : risk_color,
+                "request": request,
+                "risk_level": risk_level,
+                "risk_color": risk_color,
                 "churn_probability": churn_proba_pct,
-                "gender"           : gender,
-                "SeniorCitizen"    : SeniorCitizen,
-                "Partner"          : Partner,
-                "Dependents"       : Dependents,
-                "tenure"           : tenure,
-                "PhoneService"     : PhoneService,
-                "MultipleLines"    : MultipleLines,
-                "InternetService"  : InternetService,
-                "Contract"         : Contract,
-                "PaperlessBilling" : PaperlessBilling,
-                "PaymentMethod"    : PaymentMethod,
-                "MonthlyCharges"   : MonthlyCharges,
-                "TotalCharges"     : TotalCharges,
-                "reasons_html"     : reasons_html,
-                "segment"          : segment,
+                "gender": gender,
+                "SeniorCitizen": SeniorCitizen,
+                "Partner": Partner,
+                "Dependents": Dependents,
+                "tenure": tenure,
+                "PhoneService": PhoneService,
+                "MultipleLines": MultipleLines,
+                "InternetService": InternetService,
+                "Contract": Contract,
+                "PaperlessBilling": PaperlessBilling,
+                "PaymentMethod": PaymentMethod,
+                "MonthlyCharges": MonthlyCharges,
+                "TotalCharges": TotalCharges,
+                "reasons_html": reasons_html,
+                "segment": segment,
                 **{f"kpi_{k}": v for k, v in kpis.items()},
             },
         )
 
     except Exception as exc:
         return JSONResponse(status_code=500, content={"error": str(exc)})
+
 
 # ── Individual prediction via JSON body ───────────────────────────────────
 @app.post("/api/predict", tags=["Prediction"])
@@ -221,33 +219,33 @@ async def predict_json(customer: CustomerInput):
     try:
         input_df = customer.to_dataframe()
 
-        X_transformed   = transformer.transform(input_df[ALL_FEATURES])
+        X_transformed = transformer.transform(input_df[ALL_FEATURES])
         churn_proba_raw = float(model.predict_proba(X_transformed)[0][1])
         churn_proba_pct = round(churn_proba_raw * 100, 1)
 
         shap_values = shap_explainer(X_transformed)
-        reasons     = generate_reasons(shap_values)
+        reasons = generate_reasons(shap_values)
 
         seg_row = input_df.copy()
         seg_row["ServiceCount"] = build_service_count(seg_row)
         segment = get_segment(seg_bundle, seg_row)
 
         kpis = calculate_individual_kpis(
-            total_charges     = customer.TotalCharges,
-            monthly_charges   = customer.MonthlyCharges,
-            tenure            = customer.tenure,
-            churn_probability = churn_proba_raw,
-            contract          = customer.Contract,
+            total_charges=customer.TotalCharges,
+            monthly_charges=customer.MonthlyCharges,
+            tenure=customer.tenure,
+            churn_probability=churn_proba_raw,
+            contract=customer.Contract,
         )
 
         return {
             "status": "success",
             "data": {
                 "churn_probability_pct": churn_proba_pct,
-                "risk_level"           : get_risk_tier(churn_proba_raw),
-                "segment"              : segment,
-                "kpis"                 : kpis,
-                "shap_factors"         : reasons,
+                "risk_level": get_risk_tier(churn_proba_raw),
+                "segment": segment,
+                "kpis": kpis,
+                "shap_factors": reasons,
             },
         }
     except Exception as exc:
@@ -268,12 +266,12 @@ async def batch_predict(file: UploadFile = File(...)):
     """
     try:
         raw_bytes = await file.read()
-        df        = read_uploaded_file(raw_bytes, file.filename)
+        df = read_uploaded_file(raw_bytes, file.filename)
 
         enriched_df = run_batch_prediction(
-            df         = df,
-            pipeline   = full_pipeline,
-            seg_bundle = seg_bundle,
+            df=df,
+            pipeline=full_pipeline,
+            seg_bundle=seg_bundle,
         )
 
         excel_bytes = df_to_excel_bytes(enriched_df)
@@ -303,9 +301,9 @@ def batch_page():
 @app.get("/api/health", tags=["Ops"])
 def health_check():
     return {
-        "status"            : "healthy",
-        "model_loaded"      : model       is not None,
+        "status": "healthy",
+        "model_loaded": model is not None,
         "transformer_loaded": transformer is not None,
-        "shap_loaded"       : shap_explainer is not None,
-        "seg_loaded"        : seg_bundle  is not None,
+        "shap_loaded": shap_explainer is not None,
+        "seg_loaded": seg_bundle is not None,
     }

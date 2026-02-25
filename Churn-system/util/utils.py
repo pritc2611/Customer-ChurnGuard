@@ -12,11 +12,22 @@ from typing import Optional
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
 CAT_FEATURES = [
-    "gender", "SeniorCitizen", "Partner", "Dependents",
-    "PhoneService", "MultipleLines", "InternetService",
-    "OnlineSecurity", "OnlineBackup", "DeviceProtection",
-    "TechSupport", "StreamingTV", "StreamingMovies",
-    "Contract", "PaperlessBilling", "PaymentMethod",
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
 ]
 NUM_FEATURES = ["tenure", "MonthlyCharges", "TotalCharges"]
 ALL_FEATURES = CAT_FEATURES + NUM_FEATURES
@@ -27,8 +38,12 @@ CLUSTER_LABELS = {
 }
 
 SERVICE_COLS = [
-    "OnlineSecurity", "OnlineBackup", "DeviceProtection",
-    "TechSupport", "StreamingTV", "StreamingMovies",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
 ]
 
 
@@ -45,25 +60,25 @@ def load_html_template(filename: str) -> str:
 # Pydantic input model
 # ─────────────────────────────────────────────────────────────────────────────
 class CustomerInput(BaseModel):
-    gender: str            = Field(..., description="Male | Female")
-    SeniorCitizen: str     = Field(..., description="0 | 1")
-    Partner: str           = Field(..., description="Yes | No")
-    Dependents: str        = Field(..., description="Yes | No")
-    tenure: float          = Field(..., ge=0)
-    PhoneService: str      = Field(..., description="Yes | No")
-    MultipleLines: str     = Field(...)
-    InternetService: str   = Field(...)
-    OnlineSecurity: str    = Field(...)
-    OnlineBackup: str      = Field(...)
-    DeviceProtection: str  = Field(...)
-    TechSupport: str       = Field(...)
-    StreamingTV: str       = Field(...)
-    StreamingMovies: str   = Field(...)
-    Contract: str          = Field(...)
-    PaperlessBilling: str  = Field(...)
-    PaymentMethod: str     = Field(...)
-    MonthlyCharges: float  = Field(..., ge=0)
-    TotalCharges: float    = Field(..., ge=0)
+    gender: str = Field(..., description="Male | Female")
+    SeniorCitizen: str = Field(..., description="0 | 1")
+    Partner: str = Field(..., description="Yes | No")
+    Dependents: str = Field(..., description="Yes | No")
+    tenure: float = Field(..., ge=0)
+    PhoneService: str = Field(..., description="Yes | No")
+    MultipleLines: str = Field(...)
+    InternetService: str = Field(...)
+    OnlineSecurity: str = Field(...)
+    OnlineBackup: str = Field(...)
+    DeviceProtection: str = Field(...)
+    TechSupport: str = Field(...)
+    StreamingTV: str = Field(...)
+    StreamingMovies: str = Field(...)
+    Contract: str = Field(...)
+    PaperlessBilling: str = Field(...)
+    PaymentMethod: str = Field(...)
+    MonthlyCharges: float = Field(..., ge=0)
+    TotalCharges: float = Field(..., ge=0)
 
     @field_validator("gender")
     def val_gender(cls, v):
@@ -93,27 +108,31 @@ class CustomerInput(BaseModel):
         return v
 
     def to_dataframe(self) -> pd.DataFrame:
-        return pd.DataFrame([{
-            "gender"           : self.gender,
-            "SeniorCitizen"    : self.SeniorCitizen,
-            "Partner"          : self.Partner,
-            "Dependents"       : self.Dependents,
-            "tenure"           : self.tenure,
-            "PhoneService"     : self.PhoneService,
-            "MultipleLines"    : self.MultipleLines,
-            "InternetService"  : self.InternetService,
-            "OnlineSecurity"   : self.OnlineSecurity,
-            "OnlineBackup"     : self.OnlineBackup,
-            "DeviceProtection" : self.DeviceProtection,
-            "TechSupport"      : self.TechSupport,
-            "StreamingTV"      : self.StreamingTV,
-            "StreamingMovies"  : self.StreamingMovies,
-            "Contract"         : self.Contract,
-            "PaperlessBilling" : self.PaperlessBilling,
-            "PaymentMethod"    : self.PaymentMethod,
-            "MonthlyCharges"   : self.MonthlyCharges,
-            "TotalCharges"     : self.TotalCharges,
-        }])
+        return pd.DataFrame(
+            [
+                {
+                    "gender": self.gender,
+                    "SeniorCitizen": self.SeniorCitizen,
+                    "Partner": self.Partner,
+                    "Dependents": self.Dependents,
+                    "tenure": self.tenure,
+                    "PhoneService": self.PhoneService,
+                    "MultipleLines": self.MultipleLines,
+                    "InternetService": self.InternetService,
+                    "OnlineSecurity": self.OnlineSecurity,
+                    "OnlineBackup": self.OnlineBackup,
+                    "DeviceProtection": self.DeviceProtection,
+                    "TechSupport": self.TechSupport,
+                    "StreamingTV": self.StreamingTV,
+                    "StreamingMovies": self.StreamingMovies,
+                    "Contract": self.Contract,
+                    "PaperlessBilling": self.PaperlessBilling,
+                    "PaymentMethod": self.PaymentMethod,
+                    "MonthlyCharges": self.MonthlyCharges,
+                    "TotalCharges": self.TotalCharges,
+                }
+            ]
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -127,16 +146,18 @@ def generate_reasons(shap_val, feature_names: list[str] | None = None) -> list[s
     # shap_val.values shape: (1, n_features) for Tree or (1, n_features, 2) for PermutationExplainer
     raw = shap_val.values
     if raw.ndim == 3:
-        vals = raw[0, :, 1]           # class=1 (churn)
+        vals = raw[0, :, 1]  # class=1 (churn)
     else:
         vals = raw[0, :]
 
     # Trim to actual feature count
     n = min(len(feature_names), len(vals))
-    shap_df = pd.DataFrame({
-        "feature"   : feature_names[:n],
-        "shap_value": vals[:n],
-    })
+    shap_df = pd.DataFrame(
+        {
+            "feature": feature_names[:n],
+            "shap_value": vals[:n],
+        }
+    )
     shap_df = shap_df.reindex(
         shap_df["shap_value"].abs().sort_values(ascending=False).index
     )
@@ -227,24 +248,26 @@ def calculate_individual_kpis(
 
     # Expected remaining lifetime (months)
     months_remaining = (1 / churn_probability - 1) if churn_probability > 0 else 24
-    expected_ltv     = round(monthly_charges * months_remaining, 2)
+    expected_ltv = round(monthly_charges * months_remaining, 2)
 
     # Retention cost estimate by contract
     retention_cost_map = {
         "Month-to-month": 10,
-        "One year"       : 20,
-        "Two year"       : 30,
+        "One year": 20,
+        "Two year": 30,
     }
     retention_cost = retention_cost_map.get(contract, 10)
-    net_retention_value = round(expected_ltv * 0.3 - retention_cost, 2)  # 30 % success rate
+    net_retention_value = round(
+        expected_ltv * 0.3 - retention_cost, 2
+    )  # 30 % success rate
 
     return {
-        "clv"                  : round(clv, 2),
-        "clv_tier"             : clv_tier,
-        "revenue_at_risk"      : revenue_at_risk,
-        "expected_ltv"         : expected_ltv,
-        "monthly_charges"      : round(monthly_charges, 2),
-        "net_retention_value"  : net_retention_value,
+        "clv": round(clv, 2),
+        "clv_tier": clv_tier,
+        "revenue_at_risk": revenue_at_risk,
+        "expected_ltv": expected_ltv,
+        "monthly_charges": round(monthly_charges, 2),
+        "net_retention_value": net_retention_value,
     }
 
 
@@ -281,7 +304,7 @@ def add_engineered_features(df: pd.DataFrame) -> pd.DataFrame:
 def add_kpi_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Add CLV, CLV_Tier, Revenue_At_Risk to a batch DataFrame that already has Churn_Probability."""
     df = df.copy()
-    df["CLV"]             = df["TotalCharges"]
+    df["CLV"] = df["TotalCharges"]
     df["Revenue_At_Risk"] = (df["CLV"] * df["Churn_Probability"]).round(2)
 
     # CLV tier using quantile cuts
@@ -295,12 +318,12 @@ def add_kpi_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_segment_column(df: pd.DataFrame, seg_bundle: dict) -> pd.DataFrame:
     """Vectorised segmentation for an entire DataFrame."""
-    df    = df.copy()
+    df = df.copy()
     scaler = seg_bundle["scaler"]
     kmeans = seg_bundle["kmeans"]
 
     seg_features = ["tenure", "MonthlyCharges", "TotalCharges", "ServiceCount"]
-    scaled  = scaler.transform(df[seg_features])
+    scaled = scaler.transform(df[seg_features])
     clusters = kmeans.predict(scaled)
     df["Cluster"] = clusters
     df["Segment"] = pd.Series(clusters).map(CLUSTER_LABELS).values
@@ -325,10 +348,10 @@ def run_batch_prediction(
     df = add_engineered_features(df)
 
     # Predict
-    X              = df[ALL_FEATURES].copy()
-    churn_proba    = pipeline.predict_proba(X)[:, 1]
+    X = df[ALL_FEATURES].copy()
+    churn_proba = pipeline.predict_proba(X)[:, 1]
     df["Churn_Probability"] = churn_proba.round(4)
-    df["Risk_Tier"]         = [get_risk_tier(p) for p in churn_proba]
+    df["Risk_Tier"] = [get_risk_tier(p) for p in churn_proba]
 
     # Segmentation
     df = add_segment_column(df, seg_bundle)
@@ -341,12 +364,16 @@ def run_batch_prediction(
 
     # Reorder columns for clarity
     priority_cols = [
-        "Churn_Probability", "Risk_Tier", "Revenue_At_Risk",
-        "CLV", "CLV_Tier", "Segment",
+        "Churn_Probability",
+        "Risk_Tier",
+        "Revenue_At_Risk",
+        "CLV",
+        "CLV_Tier",
+        "Segment",
     ]
     id_col = ["customerID"] if "customerID" in df.columns else []
-    other  = [c for c in df.columns if c not in priority_cols + id_col]
-    df     = df[id_col + priority_cols + other]
+    other = [c for c in df.columns if c not in priority_cols + id_col]
+    df = df[id_col + priority_cols + other]
 
     return df
 
@@ -357,8 +384,8 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Churn_Predictions")
 
-        wb  = writer.book
-        ws  = writer.sheets["Churn_Predictions"]
+        wb = writer.book
+        ws = writer.sheets["Churn_Predictions"]
 
         from openpyxl.styles import PatternFill, Font, Alignment
         from openpyxl.utils import get_column_letter
@@ -367,16 +394,16 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
         header_fill = PatternFill("solid", fgColor="1E3A5F")
         header_font = Font(color="FFFFFF", bold=True)
         for cell in ws[1]:
-            cell.fill      = header_fill
-            cell.font      = header_font
+            cell.fill = header_fill
+            cell.font = header_font
             cell.alignment = Alignment(horizontal="center")
 
         # Risk colour rows
         risk_colours = {
             "Very High Risk 🚨": "FEE2E2",
-            "High Risk ⚠️"     : "FEF3C7",
-            "Moderate Risk ⚠️" : "FFF7ED",
-            "Low Risk ✅"      : "F0FDF4",
+            "High Risk ⚠️": "FEF3C7",
+            "Moderate Risk ⚠️": "FFF7ED",
+            "Low Risk ✅": "F0FDF4",
         }
         risk_col_idx = None
         for idx, cell in enumerate(ws[1], 1):
@@ -387,14 +414,16 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
         if risk_col_idx:
             for row in ws.iter_rows(min_row=2):
                 risk_cell = row[risk_col_idx - 1]
-                colour    = risk_colours.get(str(risk_cell.value), "FFFFFF")
-                fill      = PatternFill("solid", fgColor=colour)
+                colour = risk_colours.get(str(risk_cell.value), "FFFFFF")
+                fill = PatternFill("solid", fgColor=colour)
                 for cell in row:
                     cell.fill = fill
 
         # Auto-width columns
         for col_idx, col_cells in enumerate(ws.columns, 1):
             max_len = max((len(str(c.value)) for c in col_cells if c.value), default=10)
-            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 4, 40)
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(
+                max_len + 4, 40
+            )
 
     return buf.getvalue()

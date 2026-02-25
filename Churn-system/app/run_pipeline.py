@@ -24,7 +24,8 @@ REQUIRED_FILES = [
     BASE_DIR / "shape-background" / "shap_background.csv",
 ]
 models_dir = "./models"
-os.makedirs(models_dir, exist_ok=True) 
+os.makedirs(models_dir, exist_ok=True)
+
 
 def banner(text: str):
     print("\n" + "=" * 65)
@@ -41,6 +42,7 @@ def validate_data():
         sys.exit(1)
 
     import pandas as pd
+
     df = pd.read_csv(DATA_PATH, nrows=5)
     required_cols = ["tenure", "MonthlyCharges", "TotalCharges", "Churn"]
     missing = [c for c in required_cols if c not in df.columns]
@@ -71,12 +73,8 @@ def download_model_from_registry():
     client = MlflowClient()
 
     try:
-        versions = client.search_model_versions(
-            f"name='{REGISTERED_MODEL}'"
-        )
-        prod_versions = [
-            v for v in versions if v.current_stage == "Production"
-        ]
+        versions = client.search_model_versions(f"name='{REGISTERED_MODEL}'")
+        prod_versions = [v for v in versions if v.current_stage == "Production"]
     except Exception as e:
         print(f"❌  Cannot reach model registry: {e}")
         sys.exit(1)
@@ -86,29 +84,25 @@ def download_model_from_registry():
         return
 
     # Pick latest Production version
-    best = sorted(
-        prod_versions,
-        key=lambda v: int(v.version),
-        reverse=True
-    )[0]
+    best = sorted(prod_versions, key=lambda v: int(v.version), reverse=True)[0]
 
     print(f"Model: {REGISTERED_MODEL} v{best.version} (run: {best.run_id})")
 
     # Download model artifact
     artifact_path = client.download_artifacts(
-        run_id=best.run_id,
-        path="",
-        dst_path="./tmp_model"
+        run_id=best.run_id, path="", dst_path="./tmp_model"
     )
     src = Path(artifact_path) / "model.pkl"
     if src.exists():
         import joblib
+
         joblib.dump(joblib.load(src), Path(models_dir) / "churn_clf.joblib")
         print(f"✅  churn_clf.joblib updated from registry (v{best.version})")
     else:
         print("⚠️  model.pkl not found — keeping existing churn_clf.joblib")
-    
+
         shutil.rmtree("./tmp_model", ignore_errors=True)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 def check_artifacts():
@@ -136,8 +130,12 @@ def start_server():
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Churn MLOps Pipeline")
-    parser.add_argument("--serve-only", action="store_true", help="Skip training, start API only")
-    parser.add_argument("--train-only", action="store_true", help="Train only, no API server")
+    parser.add_argument(
+        "--serve-only", action="store_true", help="Skip training, start API only"
+    )
+    parser.add_argument(
+        "--train-only", action="store_true", help="Train only, no API server"
+    )
     args = parser.parse_args()
 
     if args.serve_only:
