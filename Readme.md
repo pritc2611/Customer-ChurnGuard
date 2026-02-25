@@ -42,7 +42,7 @@ Supports individual predictions (web UI or REST API) and bulk batch scoring with
 
 ---
 
-## Dataset
+## Dataset Schema
 
 Required columns:
 
@@ -58,7 +58,6 @@ Required columns:
 | MultipleLines | str | No |
 | InternetService | str | DSL / Fiber optic / No |
 | OnlineSecurity | str | Yes / No / No internet service |
-| ... (similar add-ons) | | |
 | Contract | str | Month-to-month / One year / Two year |
 | PaperlessBilling | str | Yes |
 | PaymentMethod | str | Electronic check |
@@ -71,17 +70,14 @@ Required columns:
 ## Local Quick Start
 
 ```bash
-# 1. Clone & install
 git clone https://github.com/pritc2611/Customer-Churn-System
 cd Churn-system
 pip install -r requirements.txt
 
-# 2. Full pipeline (train → register → serve)
 python run_pipeline.py
 
-# ── OR individual steps ──
 python run_pipeline.py --train-only   # training only
-python run_pipeline.py --serve-only   # skip training, start API if model alredy exist
+python run_pipeline.py --serve-only   # skip training, start API if model 
 
 # 3. Open
 #   Web UI  →  http://dagshub.com/<name>/<repo id>.mlflow

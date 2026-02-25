@@ -4,14 +4,13 @@ FROM python:3.11-slim AS builder
 # Set env to ensure python doesn't write bytecode
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
-
-WORKDIR /build
-
-# Combine apt commands and install only what is needed for building
-RUN apt-get update && apt-get install -y --no-install-recommends \
+    WORKDIR /build
+    
+    # Combine apt commands and install only what is needed for building
+    RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
-
+    
 COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
@@ -23,14 +22,14 @@ FROM python:3.11-slim AS runner
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Create user and install curl in one layer
-RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    # Create user and install curl in one layer
+    RUN groupadd -r appuser && useradd -r -g appuser appuser \
     && apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
+    
+    WORKDIR /app
+    
 # Copy only the installed library files from builder
 COPY --from=builder /install /usr/local
 
@@ -45,6 +44,7 @@ COPY --chown=appuser:appuser Churn-system/models/ ./models/
 
 USER appuser
 EXPOSE 8000
+ENV WANDB_API_KEY = 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
 
 # Fixed CMD path assuming files were moved into /app root
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

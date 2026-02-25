@@ -9,10 +9,8 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
-import mlflow
-import mlflow.sklearn
-from mlflow.client import MlflowClient
-
+import shutil
+import tempfile
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from xgboost import XGBClassifier
@@ -20,6 +18,7 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.impute import SimpleImputer
 from sklearn.cluster import KMeans
 from sklearn.metrics import (
     accuracy_score,
@@ -28,19 +27,17 @@ from sklearn.metrics import (
     f1_score,
     roc_auc_score,
 )
-import dagshub
-
+import wandb
 import warnings
-
+import optuna
 warnings.filterwarnings("ignore")
 
-dagshub.init(repo_owner="pritc2611", repo_name="Churn-models", mlflow=True)
-print(mlflow.get_tracking_uri())
-
-client = MlflowClient()
+# client = MlflowClient()
 EXPERIMENT_NAME = "customer_churn_telco"
 REGISTERED_MODEL = "TelcoChurnModel"
 METRIC_NAME = "recall"
+WANDB_PROJECT = "customer_churn_telco"
+
 
 # ── Feature groups ───────────────────────────────────────────────────────────
 CAT_FEATURES = [
@@ -64,8 +61,6 @@ CAT_FEATURES = [
 NUM_FEATURES = ["tenure", "MonthlyCharges", "TotalCharges"]
 ALL_FEATURES = CAT_FEATURES + NUM_FEATURES
 TARGET = "Churn"
-models_dir = "./models"
-os.makedirs(models_dir, exist_ok=True)
 shap_backgrround_dir = "./shape-background"
 os.makedirs(shap_backgrround_dir, exist_ok=True)
 
@@ -129,15 +124,30 @@ def train_segmentation_model(df: pd.DataFrame):
     kmeans = KMeans(n_clusters=2, random_state=42, n_init=10)
     kmeans.fit(scaled)
 
+    # This is the object we want to use in FastAPI
     seg_bundle = {"scaler": scaler, "kmeans": kmeans}
-    local_path = f"{models_dir}/KMeans-cluster-model.joblib"
-    joblib.dump(seg_bundle, local_path)
-    print(f"✅  Segmentation model saved locally  →  {local_path}")
-
-    if mlflow.active_run():
-        # This uploads the local file to the 'model' folder on DagsHub
-        mlflow.log_artifact(local_path, artifact_path="model")
-        print("🚀  Segmentation model uploaded to DagsHub MLflow!")
+    
+    # --- W&B LOGGING START ---
+    run = wandb.init(project=WANDB_PROJECT, job_type="segmentation")
+    
+    # Use a temp directory so we don't leave junk on your D: drive
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_path = os.path.join(tmpdir, "KMeans-cluster-model.joblib")
+        
+        # 1. SAVE the bundle to the temporary file
+        joblib.dump(seg_bundle, file_path)
+        
+        # 2. Create the Artifact
+        artifact_seg = wandb.Artifact("TelcoSegmentationModel", type="model")
+        
+        # 3. ADD the file to the artifact BEFORE logging it
+        artifact_seg.add_file(file_path)
+        
+        # 4. LOG the artifact with the 'latest' alias
+        run.log_artifact(artifact_seg, aliases=["latest"])
+    
+    run.finish()
+    # --- W&B LOGGING END ---
 
     cluster_labels = {
         0: "Loyal High-Value",
@@ -145,6 +155,7 @@ def train_segmentation_model(df: pd.DataFrame):
     }
     df["Cluster"] = kmeans.predict(scaled)
     df["Segment"] = df["Cluster"].map(cluster_labels)
+    
     return df, seg_bundle
 
 
@@ -154,13 +165,25 @@ def train_segmentation_model(df: pd.DataFrame):
 def build_pipeline(clf) -> Pipeline:
     cat_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     num_scaler = StandardScaler()
+    cat_imputer = SimpleImputer(strategy="most_frequent")
+    num_imputer = SimpleImputer(strategy="mean")
 
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("cat", cat_encoder, CAT_FEATURES),
-            ("num", num_scaler, NUM_FEATURES),
-        ]
-    )
+
+    cat_pipeline = Pipeline(steps=[
+        ("imputer", cat_imputer),
+        ("encoder", cat_encoder)
+    ])
+
+    num_pipeline = Pipeline(steps=[
+        ("imputer", num_imputer),
+        ("scaler", num_scaler)
+    ])
+
+    # Combine into a ColumnTransformer
+    preprocessor = ColumnTransformer(transformers=[
+        ("cat", cat_pipeline, CAT_FEATURES),
+        ("num", num_pipeline, NUM_FEATURES)
+    ])
 
     return Pipeline(
         steps=[
@@ -175,11 +198,10 @@ def build_pipeline(clf) -> Pipeline:
 # ─────────────────────────────────────────────────────────────────────────────
 class ModelTrainer:
     def __init__(self):
-        if client.get_experiment_by_name(EXPERIMENT_NAME) is None:
-            client.create_experiment(EXPERIMENT_NAME)
         self.best_run_id = None
         self.best_score = 0.0
         self.best_pipeline = None
+        self.best_model_name = None
 
     def _metrics(self, y_true, y_pred, y_proba) -> dict:
         return {
@@ -191,84 +213,126 @@ class ModelTrainer:
         }
 
     def train_one(self, name, clf, params, X_train, X_test, y_train, y_test):
+        run = wandb.init(
+            project=WANDB_PROJECT,
+            name=name,
+            config=params,
+        )
+
         pipeline = build_pipeline(clf)
+        pipeline.fit(X_train, y_train)
 
-        with mlflow.start_run(run_name=name) as run:
-            mlflow.log_params(params)
-            pipeline.fit(X_train, y_train)
+        y_pred = pipeline.predict(X_test)
+        y_proba = pipeline.predict_proba(X_test)[:, 1]
+        m = self._metrics(y_test, y_pred, y_proba)
 
-            y_pred = pipeline.predict(X_test)
-            y_proba = pipeline.predict_proba(X_test)[:, 1]
-            m = self._metrics(y_test, y_pred, y_proba)
-            mlflow.log_metrics(m)
-            mlflow.sklearn.log_model(pipeline, "model")
+        wandb.log(m)
+        print(f"  {name:30s}  AUC={m['recall']:.4f}  F1={m['f1']:.4f}")
 
-            print(f"  {name:30s}  AUC={m['roc_auc']:.4f}  F1={m['f1']:.4f}")
+        if m[METRIC_NAME] > self.best_score:
+            self.best_score = m[METRIC_NAME]
+            self.best_pipeline = pipeline
+            self.best_model_name = name
 
-            if m[METRIC_NAME] > self.best_score:
-                self.best_score = m[METRIC_NAME]
-                self.best_run_id = run.info.run_id
-                self.best_pipeline = pipeline
+        artifact = wandb.Artifact(
+            name="TelcoChurnModel",
+            type="model",
+            metadata=m,
+        )
+        run.log_artifact(artifact)
+        run.finish()
 
         return pipeline, m
 
-    def train_all(self, X_train, X_test, y_train, y_test):
+    def _optuna_objective(self, trial, clf_class, X_train, X_test, y_train, y_test):
+        # Example: RandomForest hyperparameters
+        if clf_class == RandomForestClassifier:
+            n_estimators = trial.suggest_int("n_estimators", 50, 300)
+            max_depth = trial.suggest_int("max_depth", 3, 20)
+            min_samples_split = trial.suggest_int("min_samples_split", 2, 10)
+            clf = RandomForestClassifier(
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                min_samples_split=min_samples_split,
+                class_weight="balanced",
+                random_state=42
+            )
+        elif clf_class == XGBClassifier:
+            clf = XGBClassifier(
+                n_estimators=trial.suggest_int("n_estimators", 50, 300),
+                max_depth=trial.suggest_int("max_depth", 3, 15),
+                learning_rate=trial.suggest_float("learning_rate", 0.01, 0.3),
+                subsample=trial.suggest_float("subsample", 0.6, 1.0),
+                colsample_bytree=trial.suggest_float("colsample_bytree", 0.6, 1.0),
+                random_state=42,
+                use_label_encoder=False,
+                eval_metric='logloss'
+            )
+        else:
+            raise ValueError("Unsupported classifier for Optuna")
+
+        pipeline = build_pipeline(clf)
+        pipeline.fit(X_train, y_train)
+
+        y_pred = pipeline.predict(X_test)
+        y_proba = pipeline.predict_proba(X_test)[:, 1]
+        m = self._metrics(y_test, y_pred, y_proba)
+
+        # Update best model manually
+        if m[METRIC_NAME] > self.best_score:
+            self.best_score = m[METRIC_NAME]
+            self.best_pipeline = pipeline
+            self.best_model_name = clf_class.__name__
+
+        return m[METRIC_NAME]
+
+    def tune_hyperparameters(self, clf_class, X_train, X_test, y_train, y_test, n_trials=30):
+        study = optuna.create_study(direction="maximize")
+        study.optimize(
+            lambda trial: self._optuna_objective(trial, clf_class, X_train, X_test, y_train, y_test),
+            n_trials=n_trials
+        )
+        print(f"Best trial: {study.best_trial.params}")
+        return study.best_trial.params
+
+    def train_all(self, X_train, X_test, y_train, y_test, tune=True):
         configs = {
-            "XgboostClassifier": (
-                XGBClassifier(),
-                {"nothing": 0},
-            ),
-            "RandomForest": (
-                RandomForestClassifier(
-                    n_estimators=200,
-                    max_depth=8,
-                    min_samples_split=5,
-                    class_weight="balanced",
-                    random_state=42,
-                ),
-                {"n_estimators": 100, "max_depth": 5},
-            ),
-            "GradientBoosting": (
-                GradientBoostingClassifier(
-                    n_estimators=200, learning_rate=0.1, max_depth=5, random_state=42
-                ),
-                {"n_estimators": 100, "lr": 0.05},
-            ),
+            "XgboostClassifier": XGBClassifier(),
+            "RandomForest": RandomForestClassifier(),
         }
 
-        print("\n" + "=" * 60)
-        print("  Model Training")
-        print("=" * 60)
         results = {}
-        for name, (clf, params) in configs.items():
+        for name, clf in configs.items():
+            if tune:
+                best_params = self.tune_hyperparameters(type(clf), X_train, X_test, y_train, y_test)
+                print(f"Tuned params for {name}: {best_params}")
+                clf.set_params(**best_params)
+
             pipeline, metrics = self.train_one(
-                name, clf, params, X_train, X_test, y_train, y_test
+                name, clf, {}, X_train, X_test, y_train, y_test
             )
             results[name] = metrics
+
+        shutil.rmtree("./wandb", ignore_errors=True)
         return results
-
+    
     def register_best_model(self):
-        model_uri = f"runs:/{self.best_run_id}/model"
-        try:
-            client.get_registered_model(REGISTERED_MODEL)
-        except Exception:
-            client.create_registered_model(REGISTERED_MODEL)
-        mv = client.create_model_version(
-            name=REGISTERED_MODEL,
-            source=model_uri,
-            run_id=self.best_run_id,
-        )
-        client.transition_model_version_stage(
-            name=REGISTERED_MODEL,
-            version=mv.version,
-            stage="Production",
-            archive_existing_versions=True,
-        )
-
-        print(
-            f"\n✅  Best model (recall={self.best_score:.4f}) "
-            f"registered as '{REGISTERED_MODEL}' v{mv.version} → Production"
-        )
+        run = wandb.init(project=WANDB_PROJECT, job_type="model-registry")
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_path = os.path.join(tmpdir, "churn_clf.joblib")
+        
+        # 1. Save to the temp folder
+            joblib.dump(self.best_pipeline, temp_path)
+        
+        # 2. Upload to W&B
+            artifact = wandb.Artifact("TelcoChurnModel", type="model")
+            artifact.add_file(temp_path)
+            run.log_artifact(artifact, aliases=["production"])
+        
+            run.finish()
+            shutil.rmtree("D:\churn_model\Churn-system\wandb",ignore_errors=True)
+            
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -316,7 +380,6 @@ if __name__ == "__main__":
     trainer.register_best_model()
 
     # ── Save pipeline locally for API ────────────────────────────────────
-    joblib.dump(trainer.best_pipeline, f"{models_dir}/churn_clf.joblib")
     print("✅  Best pipeline saved  →  churn_clf.joblib")
 
     # ── SHAP background ───────────────────────────────────────────────────

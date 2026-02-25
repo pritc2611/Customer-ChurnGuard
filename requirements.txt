@@ -20,3 +20,5 @@ openpyxl==3.1.2
 xlrd==2.0.2
 aiofiles==23.2.1
 typing
+wandb
+optuna

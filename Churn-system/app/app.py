@@ -2,6 +2,7 @@ from __future__ import annotations
 import io
 import shap
 import joblib
+import wandb
 import pandas as pd
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Form, File, UploadFile, Request, HTTPException
@@ -23,7 +24,7 @@ from util.utils import (
     ALL_FEATURES,
     build_service_count,
 )
-
+import os
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Global state (loaded once at startup)
@@ -36,6 +37,8 @@ full_pipeline = None
 MODEL_DIR = "models"
 SHAPE_DIR = "shape-background"
 REGISTERED_MODEL = "TelcoChurnModel"
+WANDB_PROJECT = "customer_churn_telco"
+ENTITY = "pcd2611-student"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -46,27 +49,47 @@ async def lifespan(app: FastAPI):
     global model, transformer, shap_explainer, seg_bundle, full_pipeline
 
     print("\n" + "=" * 65)
-    print("  Customer Churn API — Connecting to DagsHub")
+    print("  Customer Churn API — Connecting to W&B")
     print("=" * 65)
 
-    # except Exception as e:
-    full_pipeline = joblib.load(f"{MODEL_DIR}/churn_clf.joblib")
-    seg_bundle = joblib.load(f"{MODEL_DIR}/KMeans-cluster-model.joblib")
-    print("✅  model loaded")
+    api = wandb.Api()
+    
+    # 2. Reference by absolute path: "entity/project/artifact:alias"
+    churn_path = f"{ENTITY}/{WANDB_PROJECT}/TelcoChurnModel:production"
+    seg_path = f"{ENTITY}/{WANDB_PROJECT}/TelcoSegmentationModel:production"
 
-    # 4. Set up components as before
-    model = full_pipeline.named_steps["model"]
-    transformer = full_pipeline.named_steps["transformation"]
+    
+    # 3. Download to a specific, persistent cache directory
+    try:
+        # 2. Download and Load Churn Pipeline
+        print(f"📥 Downloading Churn Model: {churn_path}")
+        churn_dir = api.artifact(churn_path).download()
+        full_pipeline = joblib.load(os.path.join(churn_dir, "churn_clf.joblib"))
+        
+        # Extract components
+        model = full_pipeline.named_steps["model"]
+        transformer = full_pipeline.named_steps["transformation"]
+        print("✅ Churn Pipeline ready")
 
-    # Loading background data (ensure this file is in your Docker image or DVC)
-    background = pd.read_csv(f"{SHAPE_DIR}/shap_background.csv")
-    shap_explainer = shap.Explainer(model.predict_proba, masker=background)
-    print("✅  SHAP explainer ready")
+        # 3. Download and Load Segmentation Model
+        print(f"📥 Downloading Segmentation Model: {seg_path}")
+        seg_dir = api.artifact(seg_path).download()
+        seg_bundle = joblib.load(os.path.join(seg_dir, "KMeans-cluster-model.joblib"))
+        print("✅ Segmentation Model ready")
+
+        # 4. Set up SHAP
+        # Note: If background is static, consider logging it as an artifact too!
+        background = pd.read_csv(f"{SHAPE_DIR}/shap_background.csv")
+        shap_explainer = shap.Explainer(model.predict_proba, background)
+        print("✅ SHAP explainer ready")
+
+    except Exception as e:
+        print(f"❌ Error loading models: {e}")
+        raise e
+
     print("=" * 65 + "\n")
-
     yield
-    print("Shutting down …")
-
+    print("Shutting down API...")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # App
