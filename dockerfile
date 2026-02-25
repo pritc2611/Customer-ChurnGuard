@@ -40,7 +40,6 @@ COPY --chown=appuser:appuser Churn-system/util/ ./util/
 COPY --chown=appuser:appuser Churn-system/template/ ./template/
 COPY --chown=appuser:appuser Churn-system/static/ ./static/
 COPY --chown=appuser:appuser Churn-system/shape-background/ ./shape-background/
-COPY --chown=appuser:appuser Churn-system/models/ ./models/
 
 USER appuser
 EXPOSE 8000
