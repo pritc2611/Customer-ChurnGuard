@@ -1,18 +1,3 @@
-"""
-run_pipeline.py  –  Local MLOps Orchestrator
-============================================
-Runs the full pipeline end-to-end:
-  1. Data validation
-  2. Model training  (MLflow tracking + registry)
-  3. Model download  from MLflow Model Registry → Production
-  4. Start FastAPI   server
-
-Usage:
-    python run_pipeline.py              # full pipeline
-    python run_pipeline.py --serve-only # skip training, just start API
-    python run_pipeline.py --train-only # train only, no server
-"""
-
 import argparse
 import os
 import sys

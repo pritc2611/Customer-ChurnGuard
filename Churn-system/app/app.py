@@ -36,11 +36,8 @@ transformer     = None
 shap_explainer  = None
 seg_bundle      = None   # {"scaler": ..., "kmeans": ...}
 full_pipeline   = None
-BASE_DIR = Path(__file__).resolve().parent.parent
-MODEL_DIR = BASE_DIR / "models"
-SHAPE_DIR = BASE_DIR / "shape-background"
-os.environ["MLFLOW_TRACKING_USERNAME"] = "pritc2611"
-os.environ["MLFLOW_TRACKING_PASSWORD"] = "d69891a2caee7f83dd7ff7cea972fc432996f030"
+MODEL_DIR =  "models"
+SHAPE_DIR =  "shape-background"
 REGISTERED_MODEL = "TelcoChurnModel"
 
 
@@ -55,31 +52,17 @@ async def lifespan(app: FastAPI):
     print("  Customer Churn API — Connecting to DagsHub")
     print("=" * 65)
 
-    # 1. Initialize DagsHub Connection
-    # It's best to use environment variables for the token in production/Docker
-    dagshub.init(repo_owner="pritc2611", repo_name="Churn-models")
-
-    download_path = mlflow.artifacts.download_artifacts(
-        artifact_uri=f"models:/{REGISTERED_MODEL}/2",
-        dst_path=str(MODEL_DIR)
-    )
-
-    model_uri = "models:/TelcoChurnModel/1" 
-    full_pipeline = mlflow.sklearn.load_model(model_uri)
-    print("✅  Main Pipeline loaded from DagsHub")
-
-    # 3. Load the Clustering Model
-    # If this is also registered, use its model_uri. 
-    # If it's just an artifact in the same run, use mlflow.artifacts.download_artifacts
-    seg_bundle    = joblib.load(MODEL_DIR / "KMeans-cluster-model.joblib")
-    print("✅  Clustering model loaded")
+    # except Exception as e:
+    full_pipeline = joblib.load(f"{MODEL_DIR}/churn_clf.joblib")
+    seg_bundle    = joblib.load(f"{MODEL_DIR}/KMeans-cluster-model.joblib")
+    print("✅  model loaded")
 
     # 4. Set up components as before
     model = full_pipeline.named_steps["model"]
     transformer = full_pipeline.named_steps["transformation"]
 
     # Loading background data (ensure this file is in your Docker image or DVC)
-    background = pd.read_csv(SHAPE_DIR / "shap_background.csv")
+    background = pd.read_csv(f"{SHAPE_DIR}/shap_background.csv")
     shap_explainer = shap.Explainer(model.predict_proba, masker=background)
     print("✅  SHAP explainer ready")
     print("=" * 65 + "\n")

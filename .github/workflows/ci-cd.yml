@@ -3,7 +3,6 @@ name: ChurnGuard — CI/CD Pipeline
 on:
   push:
     branches:
-      - main
       - Churn-system
   pull_request:
     branches:
@@ -26,10 +25,10 @@ jobs:
         run: pip install flake8 pyflakes
 
       - name: Lint app.py
-        run: flake8 Churn-system/src/app.py --max-line-length=120 --ignore=E501,W503
+        run: flake8 Churn-system/app/app.py --max-line-length=120 --ignore=E501,W503
 
       - name: Lint utils
-        run: flake8 Churn-system/src/util/ --max-line-length=120 --ignore=E501,W503
+        run: flake8 Churn-system/util/ --max-line-length=120 --ignore=E501,W503
 
   # ── Build & push Docker image ────────────────────────────────────────────
   build-push:
@@ -74,7 +73,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./Churn-system
-          file: ./Churn-system/dockerfile
+          file: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

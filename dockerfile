@@ -1,47 +1,52 @@
 # ── STAGE 1: BUILDER ──────────────────────────────────────────────────
 FROM python:3.11-slim AS builder
 
+# Set env to ensure python doesn't write bytecode
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /build
 
-# Install compilation dependencies
+# Combine apt commands and install only what is needed for building
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies into a specific folder (wheels)
 COPY requirements.txt .
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements.txt
+# Install directly to a target folder to avoid wheel overhead
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 # ── STAGE 2: RUNNER ───────────────────────────────────────────────────
 FROM python:3.11-slim AS runner
 
-# Create a non-privileged user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Install only runtime essentials (curl for healthcheck)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Create user and install curl in one layer
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy wheels from builder and install them
-COPY --from=builder /build/wheels /wheels
-RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+# Copy only the installed library files from builder
+COPY --from=builder /install /usr/local
 
-# Copy application source and assets
-# Note: Ensure ownership is set to our non-root user
-COPY --chown=appuser:appuser app/ .
-COPY --chown=appuser:appuser util/ ./utils/
-COPY --chown=appuser:appuser template/ ./template/
-COPY --chown=appuser:appuser static/ ./static/
-COPY --chown=appuser:appuser data/ ./data/
+# Copy all source files at once to reduce layer count
+# Use a .dockerignore file to exclude unnecessary local files
+COPY --chown=appuser:appuser Churn-system/app/app.py .
+COPY --chown=appuser:appuser Churn-system/util/ ./util/
+COPY --chown=appuser:appuser Churn-system/template/ ./template/
+COPY --chown=appuser:appuser Churn-system/static/ ./static/
+COPY --chown=appuser:appuser Churn-system/shape-background/ ./shape-background/
+COPY --chown=appuser:appuser Churn-system/models/ ./models/
 
-
+USER appuser
 EXPOSE 8000
 
-# Fixed CMD: Using module notation
+# Fixed CMD path assuming files were moved into /app root
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
