@@ -49,9 +49,9 @@ jobs:
       - name: Build & push image
         uses: docker/build-push-action@v5
         with:
-          context: ./Churn-system
+          context: .
           # Using '.' if the Dockerfile is in the root of the context
-          file: . 
+          file: ./dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
