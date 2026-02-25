@@ -9,26 +9,9 @@ on:
       - main
 
 jobs:
-  # ── Lint & basic checks ──────────────────────────────────────────────────
-  lint:
-    name: Lint & Syntax Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Auto-format code
-        run: black Churn-system/
-
-  # ── Build & push Docker image ────────────────────────────────────────────
   build-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: lint
     # Only push on main / Churn-system branch, not on PRs
     if: github.event_name == 'push'
 
@@ -67,7 +50,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./Churn-system
-          file: .
+          # Using '.' if the Dockerfile is in the root of the context
+          file: ./Churn-system/Dockerfile 
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
