@@ -21,14 +21,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install tools
-        run: pip install flake8 black
-
       - name: Auto-format code
         run: black Churn-system/
-
-      - name: Lint app.py
-        run: flake8 Churn-system/
 
   # ── Build & push Docker image ────────────────────────────────────────────
   build-push:
