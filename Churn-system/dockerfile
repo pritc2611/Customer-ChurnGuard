@@ -43,7 +43,6 @@ COPY --chown=appuser:appuser Churn-system/shape-background ./shape-background/
 
 USER appuser
 EXPOSE 8000
-ENV WANDB_API_KEY = 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
 
 # Fixed CMD path assuming files were moved into /app root
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
