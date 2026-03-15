@@ -4,59 +4,31 @@ on:
   push:
     branches:
       - Churn-system
-  pull_request:
-    branches:
-      - main
 
-jobs:
-  build-push:
-    name: Build & Push Docker Image
-    runs-on: ubuntu-latest
-    # Only push on main / Churn-system branch, not on PRs
-    if: github.event_name == 'push'
+      steps:
+        - name: checking codes
+          uses: actions/checkout@v4
 
-    steps:
-      - uses: actions/checkout@v4
+        - name: stuping python
+          uses: actions/checkout@v4
+          with:
+            python-version: "3.10"
+                
+        - name: building docker image
+          run: |
+            docker build -t ${{secrets.DOCKER_USERNAME}}/churnguard Churn-system
+        - name: checking required secrets keys
+          run: |
+            if [ -z "${{ secrets.DOCKER_USERNAME }}" ]; then echo "Missing DOCKER_USERNAME" && exit 1; fi
+            if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then echo "Missing DOCKERHUB_TOKEN " && exit 1; fi
 
-      # ── Validate required secrets ──────────────────────────────────────
-      - name: Validate secrets
-        run: |
-          [ -n "${{ secrets.DOCKER_USERNAME }}" ] || (echo "❌ Missing DOCKER_USERNAME" && exit 1)
-          [ -n "${{ secrets.DOCKER_PASSWORD }}" ] || (echo "❌ Missing DOCKER_PASSWORD"  && exit 1)
-
-      # ── Docker Buildx (for multi-platform) ────────────────────────────
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # ── Log in to Docker Hub ───────────────────────────────────────────
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      # ── Build meta (tag with sha + latest) ────────────────────────────
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKER_USERNAME }}/churnguard
-          tags: |
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      # ── Build & push ───────────────────────────────────────────────────
-      - name: Build & push image
-        uses: docker/build-push-action@v5
-        with:
-          context: Churn-system
-          # Using '.' if the Dockerfile is in the root of the context
-          file: dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Print image digest
-        run: echo "Pushed → ${{ steps.meta.outputs.tags }}"
+        - name: login in docker hub
+          uses: docker/login-action@v2
+          with:
+            username: ${{secrets.DOCKER_USERNAME}}
+            password: ${{secrets.DOCKERHUB_TOKEN}}
+        
+        - name: taging & pusing image
+          run: |
+            docker push ${{secrets.DOCKER_USERNAME}}/churnguard:latest
+        
