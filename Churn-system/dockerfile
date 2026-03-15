@@ -47,6 +47,3 @@ ENV WANDB_API_KEY = wandb_v1_CcsXNE4DRxUamgmJpGfZg4XbvQL_8T1KVf4TzRsMpUw1Uqvjl1f
 
 # Fixed CMD path assuming files were moved into /app root
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health || exit 1

@@ -25,7 +25,6 @@ def banner(text: str):
     print(f"  {text}")
     print("=" * 65)
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 def validate_data():
     banner("Step 1 — Data Validation")
