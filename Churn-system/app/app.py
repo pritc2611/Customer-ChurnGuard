@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 
 # Fix for Docker container permissions
@@ -11,7 +12,6 @@ os.makedirs("/tmp/wandb-artifacts", exist_ok=True)
 os.makedirs("/tmp/wandb", exist_ok=True)
 os.makedirs("/tmp/matplotlib", exist_ok=True)
 
-from __future__ import annotations
 import io
 import shap
 import joblib
