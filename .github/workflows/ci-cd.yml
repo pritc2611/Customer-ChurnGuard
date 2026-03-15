@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - Churn-system
+jobs:
+    build:
+      runs-on: ubuntu-latest
 
       steps:
         - name: checking codes
