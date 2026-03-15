@@ -35,11 +35,11 @@ COPY --from=builder /install /usr/local
 
 # Copy all source files at once to reduce layer count
 # Use a .dockerignore file to exclude unnecessary local files
-COPY --chown=appuser:appuser Churn-system/app/app.py .
-COPY --chown=appuser:appuser Churn-system/util/ ./util/
-COPY --chown=appuser:appuser Churn-system/template/ ./template/
-COPY --chown=appuser:appuser Churn-system/static/ ./static/
-COPY --chown=appuser:appuser Churn-system/shape-background ./shape-background/
+COPY --chown=appuser:appuser app/app.py .
+COPY --chown=appuser:appuser util/ ./util/
+COPY --chown=appuser:appuser template/ ./template/
+COPY --chown=appuser:appuser static/ ./static/
+COPY --chown=appuser:appuser shape-background/ ./shape-background/
 
 USER appuser
 EXPOSE 8000
