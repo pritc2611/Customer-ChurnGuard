@@ -1,3 +1,16 @@
+import os
+
+# Fix for Docker container permissions
+os.environ["WANDB_CACHE_DIR"] = "/tmp/wandb-cache"
+os.environ["WANDB_ARTIFACT_DIR"] = "/tmp/wandb-artifacts"
+os.environ["WANDB_DIR"] = "/tmp/wandb"
+os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib"
+
+os.makedirs("/tmp/wandb-cache", exist_ok=True)
+os.makedirs("/tmp/wandb-artifacts", exist_ok=True)
+os.makedirs("/tmp/wandb", exist_ok=True)
+os.makedirs("/tmp/matplotlib", exist_ok=True)
+
 from __future__ import annotations
 import io
 import shap
@@ -63,7 +76,7 @@ async def lifespan(app: FastAPI):
     try:
         # 2. Download and Load Churn Pipeline
         print(f"📥 Downloading Churn Model: {churn_path}")
-        churn_dir = api.artifact(churn_path).download(root="models/")
+        churn_dir = api.artifact(churn_path).download(root="/temp/models/")
         full_pipeline = joblib.load(os.path.join(churn_dir, "churn_clf.joblib"))
         
         # Extract components
@@ -73,7 +86,7 @@ async def lifespan(app: FastAPI):
 
         # 3. Download and Load Segmentation Model
         print(f"📥 Downloading Segmentation Model: {seg_path}")
-        seg_dir = api.artifact(seg_path).download(root="models/")
+        seg_dir = api.artifact(seg_path).download(root="/temp/models/")
         seg_bundle = joblib.load(os.path.join(seg_dir, "KMeans-cluster-model.joblib"))
         print("✅ Segmentation Model ready")
 
