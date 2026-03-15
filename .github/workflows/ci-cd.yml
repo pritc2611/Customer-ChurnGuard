@@ -51,7 +51,7 @@ jobs:
         with:
           context: .
           # Using '.' if the Dockerfile is in the root of the context
-          file: ./dockerfile
+          file: ./Churn-system
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
