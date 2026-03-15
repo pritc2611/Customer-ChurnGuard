@@ -44,5 +44,5 @@ COPY --chown=appuser:appuser Churn-system/shape-background ./shape-background/
 RUN mkdir -p /app/models
 USER appuser
 EXPOSE 8000
-# Fixed CMD path assuming files were moved into /app root
+
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
