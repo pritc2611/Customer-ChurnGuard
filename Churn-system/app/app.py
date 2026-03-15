@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
     try:
         # 2. Download and Load Churn Pipeline
         print(f"📥 Downloading Churn Model: {churn_path}")
-        churn_dir = api.artifact(churn_path).download()
+        churn_dir = api.artifact(churn_path).download(root="models/")
         full_pipeline = joblib.load(os.path.join(churn_dir, "churn_clf.joblib"))
         
         # Extract components
@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
 
         # 3. Download and Load Segmentation Model
         print(f"📥 Downloading Segmentation Model: {seg_path}")
-        seg_dir = api.artifact(seg_path).download()
+        seg_dir = api.artifact(seg_path).download(root="models/")
         seg_bundle = joblib.load(os.path.join(seg_dir, "KMeans-cluster-model.joblib"))
         print("✅ Segmentation Model ready")
 
