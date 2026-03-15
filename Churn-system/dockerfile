@@ -39,7 +39,7 @@ COPY --chown=appuser:appuser Churn-system/app/app.py .
 COPY --chown=appuser:appuser Churn-system/util/ ./util/
 COPY --chown=appuser:appuser Churn-system/template/ ./template/
 COPY --chown=appuser:appuser Churn-system/static/ ./static/
-COPY --chown=appuser:appuser Churn-system/shape-background ./shape-background/
+COPY --chown=appuser:appuser shape-background ./shape-background/
 
 USER appuser
 EXPOSE 8000
