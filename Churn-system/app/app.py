@@ -1,16 +1,4 @@
 from __future__ import annotations
-import os
-
-# Fix for Docker container permissions
-os.environ["WANDB_CACHE_DIR"] = "/tmp/wandb-cache"
-os.environ["WANDB_ARTIFACT_DIR"] = "/tmp/wandb-artifacts"
-os.environ["WANDB_DIR"] = "/tmp/wandb"
-os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib"
-
-os.makedirs("/tmp/wandb-cache", exist_ok=True)
-os.makedirs("/tmp/wandb-artifacts", exist_ok=True)
-os.makedirs("/tmp/wandb", exist_ok=True)
-os.makedirs("/tmp/matplotlib", exist_ok=True)
 
 import io
 import shap
@@ -38,6 +26,17 @@ from util.utils import (
     build_service_count,
 )
 import os
+
+# Fix for Docker container permissions
+os.environ["WANDB_CACHE_DIR"] = "/tmp/wandb-cache"
+os.environ["WANDB_ARTIFACT_DIR"] = "/tmp/wandb-artifacts"
+os.environ["WANDB_DIR"] = "/tmp/wandb"
+os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib"
+
+os.makedirs("/tmp/wandb-cache", exist_ok=True)
+os.makedirs("/tmp/wandb-artifacts", exist_ok=True)
+os.makedirs("/tmp/wandb", exist_ok=True)
+os.makedirs("/tmp/matplotlib", exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Global state (loaded once at startup)
